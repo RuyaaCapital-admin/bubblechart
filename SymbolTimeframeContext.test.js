@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import assert from 'node:assert';

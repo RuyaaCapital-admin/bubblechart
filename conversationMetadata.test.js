@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { updateConversationMetadata } from './conversationMetadata.js';
