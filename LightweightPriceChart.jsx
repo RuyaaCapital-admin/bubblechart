@@ -8,6 +8,7 @@
 
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
+import { useMarket } from './MarketContext';
 
 /* ---------- Browser-safe history fetch ---------- */
 async function getBarsClient({ symbol, timeframe, debug }) {
@@ -160,8 +161,6 @@ function tfToSec(tf) {
 }
 
 export default function LightweightPriceChart({
-  symbol = "BTCUSD",
-  timeframe = "1h", // "1m" | "5m" | "15m" | "1h" | "4h" | "1d"
   actions = [], // [{type:'hline', price, label}]
   onPriceUpdate,
   watermarkSrc = DEFAULT_WATERMARK,
@@ -169,6 +168,7 @@ export default function LightweightPriceChart({
   showResetViewButton = true,
   decimals = 2,           // <<--- NEW
 }) {
+  const { symbol, timeframe } = useMarket();
 
   const containerRef = useRef(null);
   const chartRef = useRef(null);
