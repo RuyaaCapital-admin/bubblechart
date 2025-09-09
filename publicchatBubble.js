@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from './ui/Theme';
 import { Send, Bot, User, AlertCircle, RefreshCw } from 'lucide-react';
+import { useMarket } from './MarketContext';
+import { updateConversationMetadata } from './conversationMetadata';
 
 // Generate and persist guest ID
 function getGuestId() {
@@ -72,8 +74,7 @@ export default function PublicAgentBubble() {
   const [conversationId, setConversationId] = useState(null);
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [symbol, setSymbol] = useState("XAUUSD");
-  const [timeframe, setTimeframe] = useState("15m");
+  const { symbol, timeframe, setSymbol, setTimeframe } = useMarket();
   
   const endRef = useRef(null);
   const eventSourceRef = useRef(null);
@@ -223,7 +224,17 @@ export default function PublicAgentBubble() {
         eventSourceRef.current.close();
       }
     };
-  }, [language, symbol, timeframe]);
+  }, [language]);
+
+  const prevConversationId = useRef(null);
+  useEffect(() => {
+    if (!conversationId) return;
+    if (prevConversationId.current !== conversationId) {
+      prevConversationId.current = conversationId;
+      return; // Skip initial update after creation
+    }
+    updateConversationMetadata({ conversationId, symbol, timeframe });
+  }, [conversationId, symbol, timeframe]);
 
   // Auto-scroll to bottom
   useEffect(() => {
