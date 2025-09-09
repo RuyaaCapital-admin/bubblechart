@@ -6,9 +6,15 @@
 // Keeps AI overlays + "Reset View" button.
 // ==============================
 
+ codex/lift-symbol-and-timeframe-state
+"use client";
+import React, { useEffect, useMemo, useRef } from "react";
+import { useSymbolTimeframe } from './SymbolTimeframeContext.js';
+
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useMarket } from './MarketContext';
+ main
 
 /* ---------- Browser-safe history fetch ---------- */
 async function getBarsClient({ symbol, timeframe, debug }) {
@@ -160,6 +166,24 @@ function tfToSec(tf) {
   return 3600; // default 1h
 }
 
+ codex/lift-symbol-and-timeframe-state
+export default function LightweightPriceChart({
+  symbol: propSymbol,
+  timeframe: propTimeframe, // "1m" | "5m" | "15m" | "1h" | "4h" | "1d"
+  actions = [], // [{type:'hline', price, label}]
+  onPriceUpdate,
+  watermarkSrc = DEFAULT_WATERMARK,
+  locale = "auto",
+  showResetViewButton = true,
+  decimals = 2,           // <<--- NEW
+}) {
+
+  const { symbol: ctxSymbol, timeframe: ctxTimeframe } = useSymbolTimeframe();
+  const symbol = propSymbol ?? ctxSymbol ?? "BTCUSD";
+  const timeframe = propTimeframe ?? ctxTimeframe ?? "1h";
+
+  const containerRef = useRef(null);
+
 export default function LightweightPriceChart({
  codex/implement-websocket-client-for-eodhd
   symbol = "BTCUSD",
@@ -181,6 +205,7 @@ export default function LightweightPriceChart({
  main
 
   const containerRef = useRef(null);
+ main
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const barsRef = useRef([]);

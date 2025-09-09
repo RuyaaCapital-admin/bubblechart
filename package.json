@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+codex/lift-symbol-and-timeframe-state
+    "test": "node SymbolTimeframeContext.test.js"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-test-renderer": "^18.2.0"
+
  codex/lift-symbol-and-timeframe-state-to-parent
     "test": "node --test"
   },
@@ -14,6 +21,7 @@
     "react-test-renderer": "^18.2.0"
 
     "test": "node test/test.js"
+ main
  main
   }
 }

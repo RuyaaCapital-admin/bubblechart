@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from './ui/Theme';
 import { Send, Bot, User, AlertCircle, RefreshCw } from 'lucide-react';
+ codex/lift-symbol-and-timeframe-state
+import { useSymbolTimeframe } from './SymbolTimeframeContext.js';
+
 import { useMarket } from './MarketContext';
 import { updateConversationMetadata } from './conversationMetadata';
+ main
 
 // Generate and persist guest ID
 function getGuestId() {
@@ -68,6 +72,15 @@ function ChatBubble({ message, isUser }) {
 export default function PublicAgentBubble() {
   const { language, theme } = useTheme() || { language: "ar", theme: "dark" };
   
+codex/lift-symbol-and-timeframe-state
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [typing, setTyping] = useState(false);
+  const [conversationId, setConversationId] = useState(null);
+  const [error, setError] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const { symbol, timeframe, setSymbol, setTimeframe } = useSymbolTimeframe();
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -75,6 +88,7 @@ export default function PublicAgentBubble() {
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const { symbol, timeframe, setSymbol, setTimeframe } = useMarket();
+ main
   
   const endRef = useRef(null);
   const eventSourceRef = useRef(null);
@@ -226,6 +240,24 @@ export default function PublicAgentBubble() {
     };
   }, [language]);
 
+ codex/lift-symbol-and-timeframe-state
+  // Update conversation metadata when symbol or timeframe changes
+  useEffect(() => {
+    if (!conversationId) return;
+    fetch('/functions/publicAgentConversations', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationId, metadata: { symbol, timeframe } }),
+    }).catch((err) =>
+      console.error('[PUBLIC_CHAT] ❌ Metadata update failed:', err)
+    );
+  }, [symbol, timeframe, conversationId]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, typing]);
+
   const prevConversationId = useRef(null);
   useEffect(() => {
     if (!conversationId) return;
@@ -240,6 +272,7 @@ export default function PublicAgentBubble() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
+ main
 
   // Send message function
   const sendMessage = async () => {
