@@ -8,6 +8,7 @@
 
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
+import { useMarket } from './MarketContext';
 
 /* ---------- Browser-safe history fetch ---------- */
 async function getBarsClient({ symbol, timeframe, debug }) {
@@ -160,16 +161,24 @@ function tfToSec(tf) {
 }
 
 export default function LightweightPriceChart({
+ codex/implement-websocket-client-for-eodhd
   symbol = "BTCUSD",
   timeframe = "1h", // "1m" | "5m" | "15m" | "1h" | "4h" | "1d"
+
+ main
   actions = [], // [{type:'hline', price, label}]
   onPriceUpdate,
   watermarkSrc = DEFAULT_WATERMARK,
   locale = "auto",
   showResetViewButton = true,
   decimals = 2,           // <<--- NEW
+ codex/implement-websocket-client-for-eodhd
   apiKey = process.env.NEXT_PUBLIC_EODHD_API_KEY,
 }) {
+
+}) {
+  const { symbol, timeframe } = useMarket();
+ main
 
   const containerRef = useRef(null);
   const chartRef = useRef(null);
