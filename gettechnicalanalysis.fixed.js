@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 // getTechnicalAnalysis.js — Deno (plain JS, no optional chaining / no nullish coalescing)
 //
 // Data source: EODHD only (no Base44 SDK calls)

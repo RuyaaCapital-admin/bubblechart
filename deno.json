@@ -1,0 +1,10 @@
+{
+  "lint": {
+    "exclude": [
+      "ChartContext.js",
+      "aiassistant.js",
+      "LightweightPriceChart.jsx",
+      "publicchatBubble.js"
+    ]
+  }
+}

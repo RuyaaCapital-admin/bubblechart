@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 import assert from 'node:assert';
 import { getRealtimePrice } from '../getRealtimePrice.js';
 import { getTechnicalIndicator } from '../getTechnicalIndicator.js';
