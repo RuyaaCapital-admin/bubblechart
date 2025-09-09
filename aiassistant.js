@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/ui/Theme";
 import { useAuth } from "@/components/useAuth";
 import { Send, Bot, User, TrendingUp, Newspaper, Calculator, RefreshCw, X, DollarSign } from "lucide-react";
-import TradingViewOfficial from "@/components/TradingViewOfficial";
+import LightweightPriceChart from "./LightweightPriceChart";
+import { ChartProvider, useChart, mergeActions } from "./ChartContext";
 import { agentSDK } from "@/agents";
 
 const SYMBOL_TO_TV_SYMBOL = {
@@ -17,14 +18,6 @@ const SYMBOL_TO_TV_SYMBOL = {
 };
 
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
-const TV_TIMEFRAME_MAP = {
-  "1m": "1",
-  "5m": "5",
-  "15m": "15",
-  "1h": "60",
-  "4h": "240",
-  "1d": "D"
-};
 
 const CLIENT_SYMBOLS = Object.keys(SYMBOL_TO_TV_SYMBOL);
 
@@ -235,6 +228,16 @@ function AdvancedRiskCalculator({ language, onCalculate, isOpen, onClose }) {
 }
 
 function ChatBubble({ message, isUser }) {
+  const { setActions } = useChart();
+  useEffect(() => {
+    if (!isUser) {
+      const acts = message?.chart_actions || message?.actions;
+      if (Array.isArray(acts) && acts.length) {
+        setActions((prev) => mergeActions(prev, acts));
+      }
+    }
+  }, [message, isUser, setActions]);
+
   if (!message) return null;
 
   const bubbleClass = isUser ?
@@ -302,10 +305,8 @@ function Content() {
 
   const [symbol, setSymbol] = useState("XAUUSD");
   const [tf, setTf] = useState("15m");
-  const [tvSymbol, setTvSymbol] = useState(SYMBOL_TO_TV_SYMBOL["XAUUSD"]);
-  const [tvTf, setTvTf] = useState(TV_TIMEFRAME_MAP["15m"]);
-
   const endRef = useRef(null);
+  const { actions, setActions } = useChart();
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -331,7 +332,6 @@ function Content() {
   useEffect(() => {
     try {
       localStorage.setItem("liirat:lastSymbol", symbol);
-      setTvSymbol(SYMBOL_TO_TV_SYMBOL[symbol] || symbol);
     } catch (e) {
       console.error('LocalStorage error:', e);
     }
@@ -340,7 +340,6 @@ function Content() {
   useEffect(() => {
     try {
       localStorage.setItem("liirat:lastTf", tf);
-      setTvTf(TV_TIMEFRAME_MAP[tf] || "15");
     } catch (e) {
       console.error('LocalStorage error:', e);
     }
@@ -373,6 +372,15 @@ function Content() {
     setInput(riskMessage);
     setShowRiskCalculator(false);
     setTimeout(send, 100);
+  };
+
+  const collectActions = (msgs = []) => {
+    const res = [];
+    (msgs || []).forEach((m) => {
+      const acts = m?.chart_actions || m?.actions;
+      if (Array.isArray(acts)) res.push(...acts);
+    });
+    return res;
   };
 
   // ✅ ENHANCED: Agent conversation initialization with better error handling
@@ -555,14 +563,20 @@ What should I start with?`,
           console.log('[AI_ASSISTANT] ✅ Processing messages from data.messages');
           setMessages(data.messages);
           setTyping(false);
+          const acts = collectActions(data.messages);
+          if (acts.length) setActions((prev) => mergeActions(prev, acts));
         } else if (data && data.data && Array.isArray(data.data.list)) {
           console.log('[AI_ASSISTANT] ✅ Processing messages from data.data.list');
           setMessages(data.data.list);
           setTyping(false);
+          const acts = collectActions(data.data.list);
+          if (acts.length) setActions((prev) => mergeActions(prev, acts));
         } else if (data && data.data && Array.isArray(data.data.messages)) {
           console.log('[AI_ASSISTANT] ✅ Processing messages from data.data.messages');
           setMessages(data.data.messages);
           setTyping(false);
+          const acts = collectActions(data.data.messages);
+          if (acts.length) setActions((prev) => mergeActions(prev, acts));
         } else {
           console.warn('[AI_ASSISTANT] ⚠️ Unexpected message data structure:', data);
         }
@@ -679,11 +693,11 @@ What should I start with?`,
                 {symbol} - {tf}
               </h3>
               <div className="relative h-[560px]">
-                <TradingViewOfficial
-                  symbol={tvSymbol}
-                  interval={tvTf}
-                  theme={theme}
-                  locale={language === "ar" ? "ar" : "en"} />
+              <LightweightPriceChart
+                symbol={symbol}
+                timeframe={tf}
+                actions={actions}
+                locale={language === "ar" ? "ar" : "en"} />
 
               </div>
             </div>
@@ -780,10 +794,10 @@ What should I start with?`,
               {symbol} - {tf}
             </h3>
             <div className="relative w-full h-[420px] sm:h-[460px] overflow-hidden">
-              <TradingViewOfficial
-                symbol={tvSymbol}
-                interval={tvTf}
-                theme={theme}
+              <LightweightPriceChart
+                symbol={symbol}
+                timeframe={tf}
+                actions={actions}
                 locale={language === "ar" ? "ar" : "en"} />
 
             </div>
@@ -1097,10 +1111,10 @@ What should I start with?`,
               {symbol} - {tf}
             </h3>
             <div className="relative w-full h-full overflow-hidden pb-6">
-              <TradingViewOfficial
-                symbol={tvSymbol}
-                interval={tvTf}
-                theme={theme}
+              <LightweightPriceChart
+                symbol={symbol}
+                timeframe={tf}
+                actions={actions}
                 locale={language === "ar" ? "ar" : "en"} />
 
             </div>
@@ -1120,5 +1134,9 @@ What should I start with?`,
 }
 
 export default function AIAssistantPage() {
-  return <Content />;
+  return (
+    <ChartProvider>
+      <Content />
+    </ChartProvider>
+  );
 }

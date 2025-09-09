@@ -6,9 +6,15 @@
 // Keeps AI overlays + "Reset View" button.
 // ==============================
 
+ codex/lift-symbol-and-timeframe-state
 "use client";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useSymbolTimeframe } from './SymbolTimeframeContext.js';
+
+"use client";
+import React, { useEffect, useMemo, useRef } from "react";
+import { useMarket } from './MarketContext';
+ main
 
 /* ---------- Browser-safe history fetch ---------- */
 async function getBarsClient({ symbol, timeframe, debug }) {
@@ -160,6 +166,7 @@ function tfToSec(tf) {
   return 3600; // default 1h
 }
 
+ codex/lift-symbol-and-timeframe-state
 export default function LightweightPriceChart({
   symbol: propSymbol,
   timeframe: propTimeframe, // "1m" | "5m" | "15m" | "1h" | "4h" | "1d"
@@ -176,6 +183,29 @@ export default function LightweightPriceChart({
   const timeframe = propTimeframe ?? ctxTimeframe ?? "1h";
 
   const containerRef = useRef(null);
+
+export default function LightweightPriceChart({
+ codex/implement-websocket-client-for-eodhd
+  symbol = "BTCUSD",
+  timeframe = "1h", // "1m" | "5m" | "15m" | "1h" | "4h" | "1d"
+
+ main
+  actions = [], // [{type:'hline', price, label}]
+  onPriceUpdate,
+  watermarkSrc = DEFAULT_WATERMARK,
+  locale = "auto",
+  showResetViewButton = true,
+  decimals = 2,           // <<--- NEW
+ codex/implement-websocket-client-for-eodhd
+  apiKey = process.env.NEXT_PUBLIC_EODHD_API_KEY,
+}) {
+
+}) {
+  const { symbol, timeframe } = useMarket();
+ main
+
+  const containerRef = useRef(null);
+ main
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const barsRef = useRef([]);
@@ -185,6 +215,9 @@ export default function LightweightPriceChart({
   const inFlightRef = useRef(false);
   const refreshTimerRef = useRef(null);
   const tickTimerRef = useRef(null);
+  const wsRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
   const sessionsOverlayRef = useRef(null);
   const initializedRef = useRef(false);
 
@@ -194,6 +227,103 @@ export default function LightweightPriceChart({
   // refresh full history every ~4.5 min; tick every 2.5s
   const REFRESH_MS = 4 * 60 * 1000 + 30 * 1000;
   const TICK_MS = 2500;
+
+  function broadcast(type, payload) {
+    try {
+      window.dispatchEvent(new CustomEvent("chart:" + type, { detail: payload }));
+    } catch {}
+  }
+
+  function mergeTick(price, epochSec) {
+    const list = barsRef.current.slice();
+    const tail = list[list.length - 1];
+    const step = tfToSec(timeframe);
+    const bucket = Math.floor(epochSec / step) * step;
+    if (!tail || tail.time < bucket) {
+      list.push({ time: bucket, open: price, high: price, low: price, close: price, volume: 0 });
+    } else {
+      const b = { ...tail };
+      b.high = Math.max(b.high, price);
+      b.low = Math.min(b.low, price);
+      b.close = price;
+      list[list.length - 1] = b;
+    }
+    barsRef.current = list;
+    seriesRef.current?.setData(list);
+    renderTags();
+    if (priceLabelRef.current) priceLabelRef.current.textContent = price.toFixed(decimals);
+    onPriceUpdate?.(price);
+  }
+
+  function connectWS() {
+    if (wsRef.current || !apiKey || typeof WebSocket === "undefined") {
+      startPolling();
+      return;
+    }
+    const feed = symbol.includes(".") ? "us" : "forex";
+    const url = `wss://ws.eodhistoricaldata.com/ws/${feed}?api_token=${encodeURIComponent(apiKey)}`;
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      reconnectAttemptsRef.current = 0;
+      stopPolling();
+      try {
+        ws.send(JSON.stringify({ action: "subscribe", symbols: symbol }));
+      } catch {}
+    };
+
+    ws.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data);
+        const price = Number(data.p ?? data.price ?? data.close);
+        const ts = Number(data.t ?? data.timestamp ?? Date.now() / 1000);
+        if (!Number.isFinite(price)) return;
+        mergeTick(price, Math.floor(ts));
+        broadcast("tick", { symbol, price, time: ts });
+      } catch {}
+    };
+
+    const onDead = () => {
+      wsRef.current = null;
+      startPolling();
+      if (initializedRef.current) scheduleReconnect();
+    };
+    ws.onclose = onDead;
+    ws.onerror = onDead;
+  }
+
+  function scheduleReconnect() {
+    const attempt = (reconnectAttemptsRef.current += 1);
+    const delay = Math.min(30000, 1000 * 2 ** (attempt - 1));
+    reconnectTimerRef.current = setTimeout(connectWS, delay);
+  }
+
+  function stopWS() {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {}
+      wsRef.current = null;
+    }
+  }
+
+  function startPolling() {
+    if (!tickTimerRef.current) {
+      tickTimerRef.current = setInterval(patchWithTick, TICK_MS);
+    }
+  }
+
+  function stopPolling() {
+    if (tickTimerRef.current) {
+      clearInterval(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+  }
 
   const palette = useMemo(
     () => ({
@@ -306,7 +436,8 @@ export default function LightweightPriceChart({
     stopLoops();
     if (initializedRef.current) {
       refreshTimerRef.current = setInterval(() => fullRefresh().catch(() => {}), REFRESH_MS);
-      tickTimerRef.current = setInterval(patchWithTick, TICK_MS);
+      connectWS();
+      startPolling(); // fallback until WS connects
     }
   }
   function stopLoops() {
@@ -314,10 +445,8 @@ export default function LightweightPriceChart({
       clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
     }
-    if (tickTimerRef.current) {
-      clearInterval(tickTimerRef.current);
-      tickTimerRef.current = null;
-    }
+    stopPolling();
+    stopWS();
   }
   function restartLoops() {
     stopLoops();
@@ -419,6 +548,7 @@ if (priceLabelRef.current) priceLabelRef.current.textContent = (+last.close).toF
       renderTags();
       onPriceUpdate?.(+lastBar.close);
 if (priceLabelRef.current) priceLabelRef.current.textContent = (+lastBar.close).toFixed(decimals);
+      broadcast("tick", { symbol, price: +lastBar.close, time: Number(lastBar.time) });
       return;
     }
 
@@ -453,6 +583,7 @@ if (priceLabelRef.current) priceLabelRef.current.textContent = (+lastBar.close).
       renderTags();
 if (priceLabelRef.current) priceLabelRef.current.textContent = price.toFixed(decimals);
       onPriceUpdate?.(price);
+      broadcast("tick", { symbol, price, time: now });
     } catch {}
   }
 
@@ -552,6 +683,7 @@ if (priceLabelRef.current) priceLabelRef.current.textContent = price.toFixed(dec
       } catch {}
     }
     renderTags();
+    broadcast("draw", list);
 
     if (chartRef.current) {
       const rerender = () => renderTags();

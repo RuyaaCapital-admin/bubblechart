@@ -1,1 +1,6 @@
+ codex/lift-symbol-and-timeframe-state
 node_modules/
+
+node_modules
+npm-debug.log
+ main
